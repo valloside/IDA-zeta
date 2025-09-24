@@ -164,7 +164,7 @@ void AssignTypeAction::saveCurrentTypeInfo(action_activation_ctx_t *ctx) {
                 tinfo_t tif;
                 get_tinfo(&tif, mDataEA);
                 tif.print(&mTypeNameBuffer, nullptr, PRTYPE_NOREGEX);
-                break;
+                return;
             }
             case cot_call: // 函数调用
                 // TODO
@@ -231,6 +231,7 @@ void AssignTypeAction::saveCurrentTypeInfo(action_activation_ctx_t *ctx) {
                     break;
 
                 udm.type.print(&mTypeNameBuffer, nullptr, PRTYPE_NOREGEX);
+                return;
             }
         }
         break;
@@ -241,9 +242,10 @@ void AssignTypeAction::saveCurrentTypeInfo(action_activation_ctx_t *ctx) {
         udm_t &udm = ctx->type_ref->udm;
         mFrameOrStructTif = &ctx->type_ref->tif;
         mMemberIndex = ctx->type_ref->memidx;
-        mIsFunction = ctx->type_ref->fa != nullptr;
-        currentTif = ctx->type_ref->fa ? &ctx->type_ref->fa->type : &udm.type;
-        break;
+        mIsFunction = ctx->type_ref->is_func();
+        const tinfo_t &tif = mIsFunction ? mFrameOrStructTif->get_nth_arg(static_cast<int>(mMemberIndex)) : udm.type;
+        tif.print(&mTypeNameBuffer, nullptr, PRTYPE_NOREGEX);
+        return;
     }
     }
     if (currentTif)
@@ -259,6 +261,7 @@ bool AssignTypeAction::applyTypeInfo(tinfo_t tif) const {
             mVdui->refresh_view(true);
             return true;
         } else if (mDataEA != BADADDR && set_tinfo(mDataEA, &tif)) {
+            mVdui->refresh_view(true);
             return true;
         } else if (mFrameOrStructTif && mMemberIndex != -1) {
             tinfo_code_t code = mFrameOrStructTif->is_ptr_or_array()
@@ -268,12 +271,14 @@ bool AssignTypeAction::applyTypeInfo(tinfo_t tif) const {
                 msg("[IDA-Zeta] Fail to set type of the member. reason: %s\n", tinfo_errstr(code));
                 break;
             }
+            mVdui->refresh_view(true);
             return true;
         }
         break;
     case BWN_DISASM:              // 2: IDA-View 反汇编窗口
         if (mDataEA != BADADDR) { // 全局变量
             if (set_tinfo(mDataEA, &tif)) {
+                refresh_idaview_anyway();
                 return true;
             }
         } else if (mFn && set_frame_member_type(mFn, mFrameVarOffset, tif, nullptr, ETF_MAY_DESTROY)) { // 栈变量
@@ -286,7 +291,10 @@ bool AssignTypeAction::applyTypeInfo(tinfo_t tif) const {
     case BWN_FRAME: { // 4: 栈帧/栈视图
         auto code = tinfo_code_t::TERR_OK;
         if (mIsFunction) {
-            code = mFrameOrStructTif->set_udm_type(mMemberIndex, tif, ETF_FUNCARG);
+            if (mMemberIndex == -1)
+                code = mFrameOrStructTif->set_func_rettype(tif, ETF_FUNCARG);
+            else
+                code = mFrameOrStructTif->set_funcarg_type(mMemberIndex, tif, ETF_FUNCARG);
         } else if (mCurrentWidget == BWN_FRAME) {
             code = mFrameOrStructTif->set_udm_type(mMemberIndex, tif, ETF_MAY_DESTROY);
         } else {
@@ -296,6 +304,7 @@ bool AssignTypeAction::applyTypeInfo(tinfo_t tif) const {
             msg("[IDA-Zeta] Fail to set type of the member. reason: %s\n", tinfo_errstr(code));
             break;
         }
+        refresh_idaview_anyway();
         return true;
     }
     }
