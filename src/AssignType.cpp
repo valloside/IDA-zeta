@@ -74,7 +74,6 @@ int idaapi AssignTypeAction::activate(action_activation_ctx_t *ctx) {
 
     tinfo_t tif;
     if (!parseDecoratedType(&tif, mTypeNameBuffer)) {
-        msg("[IDA-Zeta] Failed to parse type: %s\n", mTypeNameBuffer.c_str());
         return 0;
     }
 

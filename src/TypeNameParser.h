@@ -120,6 +120,18 @@ inline bool parseDecoratedType(tinfo_t *tif, const qstring &typeString) {
     // -> replace ->
     //    tinfo_t: ptr -> arr[3] -> const ptr -> arr[5] -> const T
 
+    if (typeString == "void") {
+        msg("[IDA-Zeta] void type is not allowed. if u want to set void return type, just REMOVE it.\n");
+        return false;
+    }
+
+    tinfo_t dummyTypeInfo;
+    if (parse_decl(&dummyTypeInfo, nullptr, get_idati(), typeString.c_str(), PT_SIL | PT_TYP | PT_VAR)) {
+        return true;
+    }
+
+    // ^^^ 先尝试原版解析逻辑，再使用手动解析 vvv
+
     detail::BaseTypeInfo basetype;
     size_t               begin = 0;
     std::string_view     typeStringV{typeString.c_str(), typeString.size() - 1};
@@ -129,21 +141,18 @@ inline bool parseDecoratedType(tinfo_t *tif, const qstring &typeString) {
         typeStringV = typeStringV.substr(6);
         begin += 6;
         begin += detail::ltrim(typeStringV);
-        msg(std::format("[IDA-Zeta] const removed: {}\n", typeStringV).data());
     }
     if (typeStringV.starts_with("volatile ")) {
         basetype.mModifier |= detail::BaseTypeInfo::Volatile;
         typeStringV = typeStringV.substr(9);
         begin += 9;
         begin += detail::ltrim(typeStringV);
-        msg(std::format("[IDA-Zeta] volatile removed: {}\n", typeStringV).data());
     }
     if (typeStringV.starts_with("const ")) {
         basetype.mModifier |= detail::BaseTypeInfo::ConstVolatile;
         typeStringV = typeStringV.substr(6);
         begin += 6;
         begin += detail::ltrim(typeStringV);
-        msg(std::format("[IDA-Zeta] const removed: {}\n", typeStringV).data());
     }
     size_t level = 0, length = 0;
     for (auto c : typeStringV) {
@@ -158,8 +167,7 @@ inline bool parseDecoratedType(tinfo_t *tif, const qstring &typeString) {
         length++;
     }
     basetype.mName = qstring{typeStringV.data(), length};
-    msg("[IDA-Zeta] base type found: %s\n", basetype.mName.c_str());
-
+    msg("[IDA-Zeta] base type found: \"%s\"\n", basetype.mName.c_str());
     if (!tif->get_named_type(get_idati(), basetype.mName.c_str())) {
         basetype.mName.append(';');
         if (!parse_decl(tif, nullptr, get_idati(), basetype.mName.c_str(), PT_SIL | PT_TYP)) {
@@ -171,9 +179,9 @@ inline bool parseDecoratedType(tinfo_t *tif, const qstring &typeString) {
     auto typeStringCpy = typeString;
     typeStringCpy.remove(begin, length);
     typeStringCpy.insert(begin, "char");
-    typeStringCpy.append(';');
-    msg("[IDA-Zeta] parse as dummy decl: %s\n", typeStringCpy.c_str());
-    tinfo_t dummyTypeInfo;
+    if (typeStringCpy.at(typeStringCpy.size() - 1) != ';')
+        typeStringCpy.append(';');
+    msg("[IDA-Zeta] parse as dummy decl: \"%s\"\n", typeStringCpy.c_str());
     if (!parse_decl(&dummyTypeInfo, nullptr, get_idati(), typeStringCpy.c_str(), PT_SIL | PT_TYP | PT_VAR)) {
         msg("[IDA-Zeta] FATAL: type parse failed for \"%s\". (replaced \"%s\")\n", typeString.c_str(), typeStringCpy.c_str());
         return false;

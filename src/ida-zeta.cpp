@@ -2,7 +2,6 @@
 #include "AssignType.h"
 #include "FixSetTypeCrash.h"
 
-// 1. 定义一个继承自 plugmod_t 的插件类
 class IDAZeta : public plugmod_t {
     enum InitStates {
         OK,
