@@ -17,5 +17,6 @@
 #include <bytes.hpp>
 #include <ua.hpp>
 #include <moves.hpp>
+#include <intel.hpp>
 
 #pragma warning(pop)

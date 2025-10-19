@@ -155,7 +155,19 @@ inline bool parseDecoratedType(tinfo_t *tif, const qstring &typeString) {
         begin += detail::ltrim(typeStringV);
     }
     size_t level = 0, length = 0;
-    for (auto c : typeStringV) {
+    std::string_view typeStringRest;
+    if (typeStringV.starts_with("unsigned ")) {
+        typeStringRest = typeStringV.substr(9);
+        length = 9;
+        length += detail::ltrim(typeStringRest);
+    } else if (typeStringV.starts_with("signed ")) {
+        typeStringRest = typeStringV.substr(7);
+        length = 7;
+        length += detail::ltrim(typeStringRest);
+    } else {
+        typeStringRest = typeStringV;
+    }
+    for (auto c : typeStringRest) {
         if (level == 0 && detail::isNameSeperator(c)) break;
         if (c == '<') ++level;
         if (c == '>') {
@@ -163,7 +175,6 @@ inline bool parseDecoratedType(tinfo_t *tif, const qstring &typeString) {
                 return false;
             --level;
         }
-
         length++;
     }
     basetype.mName = qstring{typeStringV.data(), length};

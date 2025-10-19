@@ -66,8 +66,7 @@ int idaapi AssignTypeAction::activate(action_activation_ctx_t *ctx) {
     if (mTypeNameBuffer.empty()) {
         // 输入空，则尝试清除此变量的User-Defined数据，让其变成灰色的自动推断类型
         if (this->clearUserDefinedDataOfCurrentElem()) {
-            mVdui->refresh_view(true);
-            msg("[IDA-Zeta] User-Defined local data cleared.\n");
+            msg("[IDA-Zeta] User-Defined data cleared.\n");
         }
         return 0;
     }
@@ -203,8 +202,30 @@ void AssignTypeAction::saveCurrentTypeInfo(action_activation_ctx_t *ctx) {
         mDataEA = BADADDR;
         mFn = nullptr;
         if (is_data(flags)) { // 数据段
-            get_tinfo(&tif, ctx->cur_ea);
             mDataEA = ctx->cur_ea;
+            if (!get_tinfo(&tif, ctx->cur_ea)) {
+                if (is_strlit(flags)) {
+                    size_t len = get_max_strlit_length(ctx->cur_ea, get_str_type(ctx->cur_ea));
+                    tif.create_array(tinfo_t(BTF_CHAR), (uint32)len);
+                } else if (is_float(flags)) {
+                    tif = tinfo_t{BTMT_FLOAT};
+                } else if (is_double(flags)) {
+                    tif = tinfo_t{BTMT_DOUBLE};
+                } else if (is_byte(flags)) {
+                    tif = tinfo_t{BT_INT8};
+                } else if (is_word(flags)) {
+                    tif = tinfo_t{BT_INT16};
+                } else if (is_dword(flags)) {
+                    tif = tinfo_t{BT_INT32};
+                } else if (is_qword(flags)) {
+                    tif = tinfo_t{BT_INT64};
+                } else if (is_oword(flags)) {
+                    tif = tinfo_t{BT_INT128};
+                } else {
+                    break;
+                }
+            }
+            tif.print(&mTypeNameBuffer, nullptr, PRTYPE_NOREGEX);
             break;
         }
         if (!is_code(flags)) // 代码段
@@ -216,7 +237,7 @@ void AssignTypeAction::saveCurrentTypeInfo(action_activation_ctx_t *ctx) {
             if (op.type == o_mem) { // 全局变量
                 mDataEA = op.addr;
                 get_tinfo(&tif, mDataEA);
-                currentTif = &tif;
+                tif.print(&mTypeNameBuffer, nullptr, PRTYPE_NOREGEX);
             } else if (op.type == o_displ) { // 栈变量
                 mFn = get_func(ctx->cur_ea);
                 if (mFn == nullptr) break;
@@ -277,6 +298,9 @@ bool AssignTypeAction::applyTypeInfo(tinfo_t tif) const {
     case BWN_DISASM:              // 2: IDA-View 反汇编窗口
         if (mDataEA != BADADDR) { // 全局变量
             if (set_tinfo(mDataEA, &tif)) {
+                bool arr = tif.is_array();
+                create_struct(mDataEA, tif.get_size(), arr ? tif.get_array_element().get_tid() : tif.get_tid());
+                set_userti(mDataEA);
                 refresh_idaview_anyway();
                 return true;
             }
@@ -311,9 +335,20 @@ bool AssignTypeAction::applyTypeInfo(tinfo_t tif) const {
 }
 
 bool AssignTypeAction::clearUserDefinedDataOfCurrentElem() const {
-    if (mCurrentWidget == BWN_PSEUDOCODE && mLocalVar) {
-        mVdui->set_lvar_type(mLocalVar, {});
-        return true;
+    switch (mCurrentWidget) {
+    case BWN_PSEUDOCODE:
+        if (mLocalVar) {
+            mVdui->set_lvar_type(mLocalVar, {});
+            mVdui->refresh_view(true);
+            return true;
+        }
+    case BWN_DISASM: {
+        if (mDataEA != BADADDR) { // 全局变量
+            clr_userti(mDataEA);
+            refresh_idaview_anyway();
+            return true;
+        }
+    }
     }
     return false;
 }

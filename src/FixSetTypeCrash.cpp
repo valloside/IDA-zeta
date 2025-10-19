@@ -15,18 +15,13 @@ static ssize_t idaapi uiCallbackSetTypeFix(void *ud, int notification_code, va_l
         if (expr != nullptr && expr->op == cot_obj) {
             ea_t       extern_ea = expr->obj_ea;
             segment_t *seg = getseg(extern_ea);
-
+            flags64_t  flags = get_flags(extern_ea);
             if (seg != nullptr && seg->type == SEG_XTRN) {
-                tinfo_t tif;
-                if (get_tinfo(&tif, extern_ea) && tif.is_func()) {
-                    msg("[IDA-Zeta] action 'hx:SetType' on extern function may crash. Performing workaround...\n");
-
-                    jumpto(extern_ea);
-                    process_ui_action("SetType");
-                    process_ui_action("hx:JumpPseudo");
-
-                    return 1;
-                }
+                msg("[IDA-Zeta] action 'hx:SetType' on extern function may crash. Performing workaround...\n");
+                jumpto(extern_ea);
+                process_ui_action("SetType");
+                process_ui_action("hx:JumpPseudo");
+                return 1;
             }
         }
     }

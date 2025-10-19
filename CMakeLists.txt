@@ -23,7 +23,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_library(ida-zeta SHARED src/ida-zeta.cpp src/AssignType.cpp src/FixSetTypeCrash.cpp)
+add_library(ida-zeta SHARED
+    src/ida-zeta.cpp
+    src/AssignType.cpp
+    src/FixSetTypeCrash.cpp
+    src/SetAllFuncsUserdefined.cpp
+    src/EditFunctionPro.cpp
+    src/FixFrameSizeCalc.cpp
+)
 target_link_libraries(ida-zeta ida)
 
 if(IDA_INSTALL_DIR)
