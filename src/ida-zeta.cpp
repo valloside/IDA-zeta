@@ -4,32 +4,38 @@
 #include "SetAllFuncsUserdefined.h"
 #include "EditFunctionPro.h"
 #include "FixFrameSizeCalc.h"
+#include "CreateSubObjectType.h"
 
 class IDAZeta : public plugmod_t {
     enum InitStates {
         OK,
         Error
     };
-    std::unique_ptr<AssignTypeAction>   mAssignType;
-    std::unique_ptr<EditFunctionAction> mEditFunction;
-    std::unique_ptr<FixFrameSizeCalc>   mFixFrameSizeCalc;
-    InitStates                          mStates;
+    std::unique_ptr<AssignTypeAction>          mAssignType;
+    std::unique_ptr<EditFunctionAction>        mEditFunction;
+    std::unique_ptr<CreateSubObjectTypeAction> mCreateSubObjectType;
+    std::unique_ptr<FixFrameSizeCalc>          mFixFrameSizeCalc;
+    InitStates                                 mStates;
 
 public:
     IDAZeta() :
         mAssignType(std::make_unique<AssignTypeAction>()),
         mEditFunction(std::make_unique<EditFunctionAction>()),
+        mCreateSubObjectType(std::make_unique<CreateSubObjectTypeAction>()),
         mFixFrameSizeCalc(std::make_unique<FixFrameSizeCalc>()) {
         installCrashFix();
-        action_desc_t actionDesc = mAssignType->getDescription(this);
-        if (!register_action(actionDesc)) {
+        if (!register_action(mAssignType->getDescription(this))) {
             msg("[IDA-Zeta] FATAL: Fail to register Action '%s'!\n", AssignTypeAction::ACTION_NAME);
             mStates = Error;
             return;
         }
-        action_desc_t actionDesc2 = mEditFunction->getDescription(this);
-        if (!register_action(actionDesc2)) {
+        if (!register_action(mEditFunction->getDescription(this))) {
             msg("[IDA-Zeta] FATAL: Fail to register Action '%s'!\n", EditFunctionAction::ACTION_NAME);
+            mStates = Error;
+            return;
+        }
+        if (!register_action(mCreateSubObjectType->getDescription(this))) {
+            msg("[IDA-Zeta] FATAL: Fail to register Action '%s'!\n", CreateSubObjectTypeAction::ACTION_NAME);
             mStates = Error;
             return;
         }
@@ -39,8 +45,9 @@ public:
 
     ~IDAZeta() {
         uninstallCrashFix();
-        unregister_action(AssignTypeAction::ACTION_NAME);
+        unregister_action(CreateSubObjectTypeAction::ACTION_NAME);
         unregister_action(EditFunctionAction::ACTION_NAME);
+        unregister_action(AssignTypeAction::ACTION_NAME);
         msg("[IDA-Zeta] terminated!!!\n");
     }
 

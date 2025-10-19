@@ -30,6 +30,7 @@ add_library(ida-zeta SHARED
     src/SetAllFuncsUserdefined.cpp
     src/EditFunctionPro.cpp
     src/FixFrameSizeCalc.cpp
+    src/CreateSubObjectType.cpp
 )
 target_link_libraries(ida-zeta ida)
 
